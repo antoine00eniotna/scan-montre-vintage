@@ -8,14 +8,14 @@ import {
   onSnapshot, 
   query, 
   deleteDoc, 
-  doc, 
-  updateDoc 
+  doc 
 } from "firebase/firestore";
 
 interface Watch {
   id?: string;
   name: string;
   url: string;
+  site: string;
   status: string;
   results?: string[];
 }
@@ -23,6 +23,7 @@ interface Watch {
 export default function Home() {
   const [watchName, setWatchName] = useState("");
   const [watchUrl, setWatchUrl] = useState("");
+  const [site, setSite] = useState("");
   const [watches, setWatches] = useState<Watch[]>([]);
 
   useEffect(() => {
@@ -38,16 +39,18 @@ export default function Home() {
   }, []);
 
   const addWatch = async () => {
-    if (!watchName || !watchUrl) return;
+    if (!watchName || !watchUrl || !site) return;
     try {
       await addDoc(collection(db, "watches"), {
         name: watchName,
         url: watchUrl,
+        site: site,
         status: "Prêt pour le scan 🔄",
         results: []
       });
       setWatchName("");
       setWatchUrl("");
+      setSite("");
     } catch (error) {
       console.error("Erreur d'ajout:", error);
     }
@@ -55,23 +58,21 @@ export default function Home() {
 
   const scanWatch = async (watch: Watch) => {
     if (!watch.id) return;
-
     setWatches(prev => prev.map(w => w.id === watch.id ? { ...w, status: "Analyse en cours... 🔄" } : w));
 
     try {
-      const response = await fetch("/api/check-stock", {
+      // 🚨 MISE À JOUR : On appelle la nouvelle route regroupée
+      const response = await fetch("/api/cron-scan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           url: watch.url, 
           watchName: watch.name,
-          watchId: watch.id // <--- CRUCIAL : On envoie l'identifiant pour la comparaison
+          watchId: watch.id 
         }),
       });
 
-      const data = await response.json();
-      // Le scan met déjà Firestore à jour, onSnapshot fera le reste pour l'écran.
-
+      if (!response.ok) throw new Error("Erreur serveur");
     } catch (error) {
       console.error("Erreur scan:", error);
       setWatches(prev => prev.map(w => w.id === watch.id ? { ...w, status: "Erreur technique ⚠️" } : w));
@@ -83,7 +84,7 @@ export default function Home() {
   };
 
   return (
-    <main className="p-8 max-w-4xl mx-auto min-h-screen bg-black text-white">
+    <main className="p-8 max-w-5xl mx-auto min-h-screen bg-black text-white">
       <header className="mb-10 text-center">
         <h1 className="text-4xl font-extrabold bg-gradient-to-r from-blue-400 to-indigo-500 bg-clip-text text-transparent italic">
           ⌚ Watch Tracker Cloud
@@ -96,14 +97,19 @@ export default function Home() {
           <input 
             type="text" placeholder="Nom (ex: Constellation)" value={watchName}
             onChange={(e) => setWatchName(e.target.value)}
-            className="flex-1 p-3 rounded-xl bg-black border border-gray-700 outline-none focus:border-blue-500 transition-all"
+            className="flex-1 p-3 rounded-xl bg-black border border-gray-700 outline-none focus:border-blue-500 transition-all text-sm"
+          />
+          <input 
+            type="text" placeholder="Site (ex: victor)" value={site}
+            onChange={(e) => setSite(e.target.value)}
+            className="w-full md:w-40 p-3 rounded-xl bg-black border border-gray-700 outline-none focus:border-blue-500 transition-all text-sm"
           />
           <input 
             type="text" placeholder="URL de recherche" value={watchUrl}
             onChange={(e) => setWatchUrl(e.target.value)}
-            className="flex-1 p-3 rounded-xl bg-black border border-gray-700 outline-none focus:border-blue-500 transition-all"
+            className="flex-[2] p-3 rounded-xl bg-black border border-gray-700 outline-none focus:border-blue-500 transition-all text-sm"
           />
-          <button onClick={addWatch} className="bg-blue-600 px-8 py-3 rounded-xl font-bold hover:bg-blue-500 transition-all active:scale-95 shadow-lg shadow-blue-900/20">
+          <button onClick={addWatch} className="bg-blue-600 px-8 py-3 rounded-xl font-bold hover:bg-blue-500 transition-all shadow-lg">
             Enregistrer
           </button>
         </div>
@@ -111,10 +117,15 @@ export default function Home() {
 
       <div className="grid gap-6">
         {watches.map((watch) => (
-          <div key={watch.id} className="p-6 bg-gray-900/40 rounded-2xl border border-gray-800 backdrop-blur-md">
+          <div key={watch.id} className="p-6 bg-gray-900/40 rounded-2xl border border-gray-800">
             <div className="flex justify-between items-start">
               <div className="flex-1">
-                <h3 className="text-2xl font-bold mb-1">{watch.name}</h3>
+                <div className="flex items-center gap-3 mb-1">
+                  <h3 className="text-2xl font-bold">{watch.name}</h3>
+                  <span className="text-[10px] bg-gray-800 text-gray-400 px-2 py-0.5 rounded-md border border-gray-700 uppercase">
+                    {watch.site}
+                  </span>
+                </div>
                 <a href={watch.url} target="_blank" className="text-[10px] text-blue-400 italic block hover:underline truncate max-w-md">
                   {watch.url}
                 </a>
@@ -132,7 +143,7 @@ export default function Home() {
 
               <div className="flex flex-col items-end gap-3">
                 <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase border ${
-                  watch.status.includes('🔥') || watch.status.includes('✅')
+                  watch.status.includes('🔥') || watch.status.includes('✅') || watch.status.includes('Trouvé')
                     ? 'bg-green-500/10 text-green-400 border-green-500/20' 
                     : 'bg-blue-500/10 text-blue-400 border-blue-500/20'
                 }`}>
