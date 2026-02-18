@@ -2,13 +2,12 @@ import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCNIcLz5VrRRlNobwIXNgoI-ZKpyQEqW1Y",
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: "scan-montre-vintage.firebaseapp.com",
-  projectId: "scan-montre-vintage",
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
   storageBucket: "scan-montre-vintage.firebasestorage.app",
   messagingSenderId: "86633904601",
-  appId: "1:86633904601:web:f7d112a33bd5153ec0c1c8",
-  measurementId: "G-33PSM9S2F4"
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
 };
 
 // Initialisation de Firebase
